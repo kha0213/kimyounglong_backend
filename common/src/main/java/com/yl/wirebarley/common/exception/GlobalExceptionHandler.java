@@ -8,20 +8,25 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = {
+    "com.yl.wirebarley.common",
+    "com.yl.wirebarley.account"
+})
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(WirebarleyException.class)
     public ResponseEntity<String> handleCustomException(WirebarleyException e) {
-        log.error("MathFlatException occurred: {}", e.getMessage(), e);
+        log.error("WirebarleyException occurred: {}", e.getMessage(), e);
 
         return ResponseEntity.status(getHttpStatusFromErrorCode(e.getCode()))
                 .body(e.getMessage());
     }
 
-    @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class, InvalidFormatException.class})
+    @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class, InvalidFormatException.class,
+            MethodArgumentTypeMismatchException.class})
     public ResponseEntity<String> handleValidationException(Exception e) {
         log.error("Validation error occurred: {}", e.getMessage(), e);
 

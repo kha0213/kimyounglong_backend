@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 @Getter
 public class SoftDeleteBaseEntity {
     @Column
+    private boolean deleted = false;
+    @Column
     private String deletedBy;
     @Column
     private LocalDateTime deletedAt;

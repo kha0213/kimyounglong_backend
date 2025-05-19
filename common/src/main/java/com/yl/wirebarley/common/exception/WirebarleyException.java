@@ -16,4 +16,8 @@ public class WirebarleyException extends RuntimeException {
     public static WirebarleyException accountNotFound(Long id) {
         return new WirebarleyException(ErrorCode.ACCOUNT_NOT_FOUND, id);
     }
+
+    public static WirebarleyException accountDuplicated(String accountNumber) {
+        return new WirebarleyException(ErrorCode.ACCOUNT_DUPLICATED, accountNumber);
+    }
 }
