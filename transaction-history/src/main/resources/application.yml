@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: transaction-history-service
+  profiles:
+    include: common
+  
+server:
+  port: 8083
