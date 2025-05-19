@@ -58,7 +58,6 @@ allprojects {
             exceptionFormat "full"
         }
         
-        // 테스트 실행 시 JaCoCo 적용
         finalizedBy jacocoTestReport
     }
     
