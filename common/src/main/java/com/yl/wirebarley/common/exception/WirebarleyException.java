@@ -7,17 +7,14 @@ public class WirebarleyException extends RuntimeException {
     private final ErrorCode code;
     private final String message;
 
-    private WirebarleyException(ErrorCode errorCode, Object... args) {
+    protected WirebarleyException(ErrorCode errorCode, Object... args) {
         super(errorCode.getMessage(args));
         this.code = errorCode;
         this.message = errorCode.getMessage(args);
     }
 
-    public static WirebarleyException accountNotFound(Long id) {
-        return new WirebarleyException(ErrorCode.ACCOUNT_NOT_FOUND, id);
-    }
-
-    public static WirebarleyException accountDuplicated(String accountNumber) {
-        return new WirebarleyException(ErrorCode.ACCOUNT_DUPLICATED, accountNumber);
+    // 공통 예외 생성 메서드
+    public static WirebarleyException of(ErrorCode errorCode, Object... args) {
+        return new WirebarleyException(errorCode, args);
     }
 }
