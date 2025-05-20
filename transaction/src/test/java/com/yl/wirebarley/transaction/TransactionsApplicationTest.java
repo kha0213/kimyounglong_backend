@@ -1,10 +1,10 @@
-package com.yl.wirebarley.history;
+package com.yl.wirebarley.transaction;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest(classes =TransactionHistoryApplication.class)
-class TransactionHistoryApplicationTest {
+@SpringBootTest(classes = TransactionApplication.class)
+class TransactionsApplicationTest {
     @Test
     void contextLoads() {
     }

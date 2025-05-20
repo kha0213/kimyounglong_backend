@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 @Table(name = "transactions")
 @Getter
 @NoArgsConstructor
-public class Transaction extends BaseEntity {
+public class Transactions extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
