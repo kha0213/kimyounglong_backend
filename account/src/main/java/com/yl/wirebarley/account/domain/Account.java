@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -44,6 +45,9 @@ public class Account extends SoftDeleteBaseEntity {
     @Column
     private BigDecimal balance = BigDecimal.ZERO;
 
+    @Version
+    private Long version;
+
     @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AccountHistory> histories = new ArrayList<>();
 
@@ -60,5 +64,10 @@ public class Account extends SoftDeleteBaseEntity {
         AccountHistory history = AccountHistory.of(this);
         this.histories.add(history);
         history.setAccount(this);
+    }
+
+    public void addBalance(BigDecimal balance) {
+        this.balance = this.balance.add(balance);
+        addHistory();
     }
 }

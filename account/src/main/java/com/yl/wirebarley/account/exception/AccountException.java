@@ -16,4 +16,8 @@ public class AccountException extends WirebarleyException {
     public static AccountException accountDuplicated(String accountNumber) {
         return new AccountException(ErrorCode.ACCOUNT_DUPLICATED, accountNumber);
     }
+    
+    public static AccountException insufficientBalance(Long accountId) {
+        return new AccountException(ErrorCode.INSUFFICIENT_BALANCE, accountId);
+    }
 }
