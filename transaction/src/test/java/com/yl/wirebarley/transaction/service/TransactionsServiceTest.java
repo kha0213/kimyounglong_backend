@@ -2,7 +2,6 @@ package com.yl.wirebarley.transaction.service;
 
 import com.yl.wirebarley.account.api.AccountDto;
 import com.yl.wirebarley.account.api.AccountOperations;
-import com.yl.wirebarley.account.domain.Bank;
 import com.yl.wirebarley.transaction.domain.TransactionStatus;
 import com.yl.wirebarley.transaction.domain.TransactionType;
 import com.yl.wirebarley.transaction.domain.Transactions;
@@ -10,24 +9,24 @@ import com.yl.wirebarley.transaction.domain.dto.DepositRequest;
 import com.yl.wirebarley.transaction.domain.dto.TransactionResponse;
 import com.yl.wirebarley.transaction.domain.dto.TransferRequest;
 import com.yl.wirebarley.transaction.domain.dto.WithdrawalRequest;
-import com.yl.wirebarley.transaction.exception.TransactionException;
 import com.yl.wirebarley.transaction.repository.TransactionsRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static com.yl.wirebarley.transaction.helper.TestHelper.setId;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -41,154 +40,231 @@ class TransactionsServiceTest {
     @Mock
     private AccountOperations accountOperations;
 
+    @Mock
+    private TransactionLimitService limitService;
+
     @InjectMocks
     private TransactionsService transactionsService;
 
-    private AccountDto sourceAccount;
-    private AccountDto targetAccount;
-    private Transactions mockTransaction;
-
     @BeforeEach
     void setUp() {
-        // Setup source account
-        sourceAccount = AccountDto.builder()
-                .id(1L)
-                .accountNumber("1234567890")
-                .accountHolder("A")
-                .bank(Bank.KB)
-                .balance(new BigDecimal("1000.00"))
-                .build();
-
-        // Setup target account
-        targetAccount = AccountDto.builder()
-                .id(2L)
-                .accountNumber("0987654321")
-                .accountHolder("B")
-                .bank(Bank.SHINHAN)
-                .balance(new BigDecimal("500.00"))
-                .build();
-
-        // Setup mock transaction
-        mockTransaction = mock(Transactions.class);
-        when(mockTransaction.getId()).thenReturn(1L);
-        when(mockTransaction.getAccountId()).thenReturn(1L);
-        when(mockTransaction.getTargetAccountId()).thenReturn(null);
-        when(mockTransaction.getAmount()).thenReturn(new BigDecimal("100.00"));
-        when(mockTransaction.getFee()).thenReturn(BigDecimal.ZERO);
-        when(mockTransaction.getType()).thenReturn(TransactionType.DEPOSIT);
-        when(mockTransaction.getDescription()).thenReturn("Test transaction");
-        when(mockTransaction.getStatus()).thenReturn(TransactionStatus.COMPLETED);
-        when(mockTransaction.getTransactionTime()).thenReturn(LocalDateTime.now());
+        // 프로퍼티 값 설정
+        ReflectionTestUtils.setField(transactionsService, "DAILY_WITHDRAWAL_LIMIT", new BigDecimal("1000000"));
+        ReflectionTestUtils.setField(transactionsService, "DAILY_TRANSFER_LIMIT", new BigDecimal("3000000"));
+        ReflectionTestUtils.setField(transactionsService, "TRANSFER_FEE", new BigDecimal("0.01"));
     }
 
     @Test
-    void deposit_shouldSucceed() {
+    @DisplayName("입금 요청 성공 테스트")
+    void depositSuccessTest() {
         // Given
-        DepositRequest request = new DepositRequest(1L, new BigDecimal("100.00"), "Test deposit");
-        when(accountOperations.existsAccount(1L)).thenReturn(true);
-        when(accountOperations.updateBalance(eq(1L), any(BigDecimal.class))).thenReturn(sourceAccount);
-        when(transactionsRepository.save(any(Transactions.class))).thenReturn(mockTransaction);
+        Long accountId = 1L;
+        BigDecimal amount = new BigDecimal("10000");
+        DepositRequest request = new DepositRequest();
+        request.setAccountId(accountId);
+        request.setAmount(amount);
+
+        AccountDto accountDto = AccountDto.builder()
+            .id(accountId)
+            .accountNumber("1234567890")
+            .accountHolder("테스트 계좌")
+            .balance(new BigDecimal("50000"))
+            .build();
+            
+        AccountDto updatedAccountDto = AccountDto.builder()
+            .id(accountId)
+            .accountNumber("1234567890")
+            .accountHolder("테스트 계좌")
+            .balance(new BigDecimal("60000"))
+            .build();
+        
+        Transactions savedTransaction = Transactions.createForDeposit(request);
+        setId(savedTransaction, 1L);
+        savedTransaction.markAsCompleted();
+
+        when(accountOperations.getAccount(accountId)).thenReturn(Optional.of(accountDto));
+        when(accountOperations.updateBalance(accountId, amount)).thenReturn(updatedAccountDto);
+        when(transactionsRepository.save(any(Transactions.class))).thenReturn(savedTransaction);
 
         // When
         TransactionResponse response = transactionsService.deposit(request);
 
         // Then
-        assertNotNull(response);
-        assertEquals(TransactionStatus.COMPLETED, response.getStatus());
-        assertEquals(1L, response.getAccountId());
-        assertEquals(new BigDecimal("100.00"), response.getAmount());
-        assertEquals("DEPOSIT", response.getType());
-        verify(accountOperations).updateBalance(eq(1L), eq(new BigDecimal("100.00")));
+        assertThat(response).isNotNull();
+        assertThat(response.getTransactionId()).isEqualTo(1L);
+        assertThat(response.getAmount()).isEqualTo(amount);
+        assertThat(response.getType()).isEqualTo(TransactionType.DEPOSIT);
+        assertThat(response.getStatus()).isEqualTo(TransactionStatus.COMPLETED);
+        assertThat(response.getBalance()).isEqualTo(new BigDecimal("60000"));
+        
+        verify(accountOperations).getAccount(accountId);
+        verify(accountOperations).updateBalance(accountId, amount);
         verify(transactionsRepository).save(any(Transactions.class));
     }
 
     @Test
-    void withdrawal_shouldSucceed_whenSufficientBalance() {
+    @DisplayName("출금 요청 성공 테스트")
+    void withdrawalSuccessTest() {
         // Given
-        WithdrawalRequest request = new WithdrawalRequest(1L, new BigDecimal("100.00"), "Test withdrawal");
-        when(accountOperations.getAccount(1L)).thenReturn(sourceAccount);
-        when(mockTransaction.getType()).thenReturn(TransactionType.WITHDRAWAL);
-        when(accountOperations.updateBalance(eq(1L), any(BigDecimal.class))).thenReturn(sourceAccount);
-        when(transactionsRepository.save(any(Transactions.class))).thenReturn(mockTransaction);
+        Long accountId = 1L;
+        BigDecimal amount = new BigDecimal("10000");
+        WithdrawalRequest request = new WithdrawalRequest();
+        request.setAccountId(accountId);
+        request.setAmount(amount);
+
+        AccountDto accountDto = AccountDto.builder()
+            .id(accountId)
+            .accountNumber("1234567890")
+            .accountHolder("테스트 계좌")
+            .balance(new BigDecimal("50000"))
+            .build();
+            
+        AccountDto updatedAccountDto = AccountDto.builder()
+            .id(accountId)
+            .accountNumber("1234567890")
+            .accountHolder("테스트 계좌")
+            .balance(new BigDecimal("40000"))
+            .build();
+        
+        Transactions savedTransaction = Transactions.createForWithdrawal(request);
+        setId(savedTransaction, 1L);
+        savedTransaction.markAsCompleted();
+
+        when(accountOperations.getAccount(accountId)).thenReturn(Optional.of(accountDto));
+        when(accountOperations.updateBalance(accountId, amount.negate())).thenReturn(updatedAccountDto);
+        when(transactionsRepository.save(any(Transactions.class))).thenReturn(savedTransaction);
+        when(limitService.checkAndUpdateLimit(anyLong(), any(TransactionType.class), any(BigDecimal.class), any(BigDecimal.class))).thenReturn(new BigDecimal("10000"));
 
         // When
         TransactionResponse response = transactionsService.withdrawal(request);
 
         // Then
-        assertNotNull(response);
-        assertEquals(TransactionStatus.COMPLETED, response.getStatus());
-        assertEquals("WITHDRAWAL", response.getType());
-        verify(accountOperations).updateBalance(eq(1L), eq(new BigDecimal("100.00").negate()));
+        assertThat(response).isNotNull();
+        assertThat(response.getTransactionId()).isEqualTo(1L);
+        assertThat(response.getAmount()).isEqualTo(amount);
+        assertThat(response.getType()).isEqualTo(TransactionType.WITHDRAWAL);
+        assertThat(response.getStatus()).isEqualTo(TransactionStatus.COMPLETED);
+        assertThat(response.getBalance()).isEqualTo(new BigDecimal("40000"));
+        
+        verify(accountOperations).getAccount(accountId);
+        verify(accountOperations).updateBalance(accountId, amount.negate());
+        verify(limitService).checkAndUpdateLimit(eq(accountId), eq(TransactionType.WITHDRAWAL), eq(amount), any(BigDecimal.class));
         verify(transactionsRepository).save(any(Transactions.class));
     }
 
     @Test
-    void withdrawal_shouldFail_whenInsufficientBalance() {
+    @DisplayName("계좌 이체 성공 테스트")
+    void transferSuccessTest() {
         // Given
-        WithdrawalRequest request = new WithdrawalRequest(1L, new BigDecimal("2000.00"), "Test withdrawal");
-        when(accountOperations.getAccount(1L)).thenReturn(sourceAccount);
-
-        // When & Then
-        assertThrows(TransactionException.class, () -> {
-            transactionsService.withdrawal(request);
-        });
-        verify(accountOperations, never()).updateBalance(any(Long.class), any(BigDecimal.class));
-    }
-
-    @Test
-    void transfer_shouldSucceed_whenSufficientBalance() {
-        // Given
-        TransferRequest request = new TransferRequest(1L, 2L, new BigDecimal("100.00"), "Test transfer", new BigDecimal("5.00"));
-        when(accountOperations.getAccount(1L)).thenReturn(sourceAccount);
-        when(accountOperations.getAccount(2L)).thenReturn(targetAccount);
+        Long sourceAccountId = 1L;
+        Long targetAccountId = 2L;
+        BigDecimal amount = new BigDecimal("10000");
+        BigDecimal fee = amount.multiply(new BigDecimal("0.01")); // 100원
+        BigDecimal totalAmount = amount.add(fee); // 10100원
         
-        Transactions mockSourceTransaction = mock(Transactions.class);
-        when(mockSourceTransaction.getId()).thenReturn(1L);
-        when(mockSourceTransaction.getAccountId()).thenReturn(1L);
-        when(mockSourceTransaction.getTargetAccountId()).thenReturn(2L);
-        when(mockSourceTransaction.getAmount()).thenReturn(new BigDecimal("100.00"));
-        when(mockSourceTransaction.getFee()).thenReturn(new BigDecimal("5.00"));
-        when(mockSourceTransaction.getType()).thenReturn(TransactionType.TRANSFER);
-        when(mockSourceTransaction.getDescription()).thenReturn("Test transfer");
-        when(mockSourceTransaction.getStatus()).thenReturn(TransactionStatus.COMPLETED);
-        when(mockSourceTransaction.getTransactionTime()).thenReturn(LocalDateTime.now());
+        TransferRequest request = new TransferRequest();
+        request.setAccountId(sourceAccountId);
+        request.setTargetAccountId(targetAccountId);
+        request.setAmount(amount);
+
+        AccountDto sourceAccountDto = AccountDto.builder()
+            .id(sourceAccountId)
+            .accountNumber("1234567890")
+            .accountHolder("출금 계좌")
+            .balance(new BigDecimal("50000"))
+            .build();
+            
+        AccountDto targetAccountDto = AccountDto.builder()
+            .id(targetAccountId)
+            .accountNumber("0987654321")
+            .accountHolder("입금 계좌")
+            .balance(new BigDecimal("30000"))
+            .build();
+            
+        AccountDto updatedSourceAccountDto = AccountDto.builder()
+            .id(sourceAccountId)
+            .accountNumber("1234567890")
+            .accountHolder("출금 계좌")
+            .balance(new BigDecimal("39900"))
+            .build();
+            
+        AccountDto updatedTargetAccountDto = AccountDto.builder()
+            .id(targetAccountId)
+            .accountNumber("0987654321")
+            .accountHolder("입금 계좌")
+            .balance(new BigDecimal("40000"))
+            .build();
         
-        when(accountOperations.updateBalance(eq(1L), any(BigDecimal.class))).thenReturn(sourceAccount);
-        when(accountOperations.updateBalance(eq(2L), any(BigDecimal.class))).thenReturn(targetAccount);
-        when(transactionsRepository.save(any(Transactions.class))).thenReturn(mockSourceTransaction);
+        Transactions sourceTransaction = Transactions.createForTransfer(request, fee);
+        setId(sourceTransaction, 1L);
+        sourceTransaction.markAsCompleted();
+
+        Transactions targetTransaction = Transactions.createForTransferReceiver(request);
+        setId(targetTransaction, 2L);
+        targetTransaction.markAsCompleted();
+
+        when(accountOperations.getAccount(sourceAccountId)).thenReturn(Optional.of(sourceAccountDto));
+        when(accountOperations.getAccount(targetAccountId)).thenReturn(Optional.of(targetAccountDto));
+        when(accountOperations.updateBalance(sourceAccountId, totalAmount.negate())).thenReturn(updatedSourceAccountDto);
+        when(accountOperations.updateBalance(targetAccountId, amount)).thenReturn(updatedTargetAccountDto);
+        when(transactionsRepository.save(any(Transactions.class)))
+                .thenReturn(sourceTransaction)
+                .thenReturn(targetTransaction);
+        when(limitService.checkAndUpdateLimit(anyLong(), any(TransactionType.class), any(BigDecimal.class), any(BigDecimal.class))).thenReturn(new BigDecimal("10000"));
 
         // When
         TransactionResponse response = transactionsService.transfer(request);
 
         // Then
-        assertNotNull(response);
-        assertEquals(TransactionStatus.COMPLETED, response.getStatus());
-        assertEquals("TRANSFER", response.getType());
-        assertEquals(1L, response.getAccountId());
-        assertEquals(2L, response.getTargetAccountId());
-        assertEquals(new BigDecimal("100.00"), response.getAmount());
-        assertEquals(new BigDecimal("5.00"), response.getFee());
+        assertThat(response).isNotNull();
+        assertThat(response.getTransactionId()).isEqualTo(1L);
+        assertThat(response.getAmount()).isEqualTo(amount);
+        assertThat(response.getFee()).isEqualTo(fee);
+        assertThat(response.getType()).isEqualTo(TransactionType.TRANSFER);
+        assertThat(response.getStatus()).isEqualTo(TransactionStatus.COMPLETED);
+        assertThat(response.getBalance()).isEqualTo(new BigDecimal("39900"));
         
-        // 송금자 계좌에서 금액+수수료 차감 확인
-        verify(accountOperations).updateBalance(eq(1L), eq(new BigDecimal("105.00").negate()));
-        // 수취인 계좌에 금액 추가 확인
-        verify(accountOperations).updateBalance(eq(2L), eq(new BigDecimal("100.00")));
-        // 두 개의 트랜잭션 저장 확인
+        verify(accountOperations).getAccount(sourceAccountId);
+        verify(accountOperations).getAccount(targetAccountId);
+        verify(accountOperations).updateBalance(sourceAccountId, totalAmount.negate());
+        verify(accountOperations).updateBalance(targetAccountId, amount);
+        verify(limitService).checkAndUpdateLimit(eq(sourceAccountId), eq(TransactionType.TRANSFER), eq(amount), any(BigDecimal.class));
         verify(transactionsRepository, times(2)).save(any(Transactions.class));
     }
 
     @Test
-    void transfer_shouldFail_whenInsufficientBalance() {
+    @DisplayName("일일 출금 한도 조회 테스트")
+    void getRemainingWithdrawalLimitTest() {
         // Given
-        TransferRequest request = new TransferRequest(1L, 2L, new BigDecimal("950.00"), "Test transfer", new BigDecimal("100.00"));
-        when(accountOperations.getAccount(1L)).thenReturn(sourceAccount);
-        when(accountOperations.getAccount(2L)).thenReturn(targetAccount);
+        Long accountId = 1L;
+        BigDecimal expectedLimit = new BigDecimal("800000");
+        
+        when(limitService.getRemainingLimit(eq(accountId), eq(TransactionType.WITHDRAWAL), any(BigDecimal.class)))
+                .thenReturn(expectedLimit);
 
-        // When & Then
-        assertThrows(TransactionException.class, () -> {
-            transactionsService.transfer(request);
-        });
-        verify(accountOperations, never()).updateBalance(any(Long.class), any(BigDecimal.class));
-        verify(transactionsRepository, never()).save(any(Transactions.class));
+        // When
+        BigDecimal result = transactionsService.getRemainingWithdrawalLimit(accountId);
+
+        // Then
+        assertThat(result).isEqualTo(expectedLimit);
+        verify(limitService).getRemainingLimit(eq(accountId), eq(TransactionType.WITHDRAWAL), any(BigDecimal.class));
+    }
+
+    @Test
+    @DisplayName("일일 이체 한도 조회 테스트")
+    void getRemainingTransferLimitTest() {
+        // Given
+        Long accountId = 1L;
+        BigDecimal expectedLimit = new BigDecimal("2500000");
+        
+        when(limitService.getRemainingLimit(eq(accountId), eq(TransactionType.TRANSFER), any(BigDecimal.class)))
+                .thenReturn(expectedLimit);
+
+        // When
+        BigDecimal result = transactionsService.getRemainingTransferLimit(accountId);
+
+        // Then
+        assertThat(result).isEqualTo(expectedLimit);
+        verify(limitService).getRemainingLimit(eq(accountId), eq(TransactionType.TRANSFER), any(BigDecimal.class));
     }
 }
