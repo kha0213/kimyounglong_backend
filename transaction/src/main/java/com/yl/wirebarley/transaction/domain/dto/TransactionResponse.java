@@ -2,6 +2,7 @@ package com.yl.wirebarley.transaction.domain.dto;
 
 import com.yl.wirebarley.account.api.AccountDto;
 import com.yl.wirebarley.transaction.domain.TransactionStatus;
+import com.yl.wirebarley.transaction.domain.TransactionType;
 import com.yl.wirebarley.transaction.domain.Transactions;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,8 +23,9 @@ public class TransactionResponse {
 
     private BigDecimal amount;
     private BigDecimal fee;
+    private BigDecimal balance;
 
-    private String type;
+    private TransactionType type;
     private String description;
 
     private LocalDateTime transactionTime;
@@ -36,7 +38,8 @@ public class TransactionResponse {
                 .targetAccountId(transaction.getTargetAccountId())
                 .amount(transaction.getAmount())
                 .fee(transaction.getFee())
-                .type(transaction.getType().name())
+                .balance(account.getBalance())
+                .type(transaction.getType())
                 .description(transaction.getDescription())
                 .transactionTime(transaction.getTransactionTime())
                 .status(transaction.getStatus())
