@@ -5,6 +5,7 @@ import com.yl.wirebarley.transaction.domain.dto.LimitResponse;
 import com.yl.wirebarley.transaction.domain.dto.TransactionResponse;
 import com.yl.wirebarley.transaction.domain.dto.TransferRequest;
 import com.yl.wirebarley.transaction.domain.dto.WithdrawalRequest;
+import com.yl.wirebarley.transaction.domain.dto.TransactionHistoryResponse;
 import com.yl.wirebarley.transaction.service.TransactionsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -153,5 +155,35 @@ public class TransactionController {
         BigDecimal transferLimit = transactionsService.getRemainingTransferLimit(accountId);
         
         return new LimitResponse(accountId, withdrawalLimit, transferLimit);
+    }
+    
+    @Operation(
+            summary = "거래 내역 조회",
+            description = "지정된 계좌의 송금 및 수취 내역을 최신순으로 조회합니다."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "거래 내역을 성공적으로 조회했습니다.",
+                    content = @Content(schema = @Schema(implementation = TransactionHistoryResponse.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 계좌 ID입니다.",
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "계좌를 찾을 수 없습니다.",
+                    content = @Content
+            )
+    })
+    @GetMapping("/history/{accountId}")
+    public List<TransactionHistoryResponse> getTransactionHistory(
+            @Parameter(description = "거래 내역을 조회할 계좌의 ID", required = true, example = "1")
+            @PathVariable @NotNull Long accountId
+    ) {
+        log.info("Getting transaction history for account: {}", accountId);
+        return transactionsService.getTransactionHistory(accountId);
     }
 }

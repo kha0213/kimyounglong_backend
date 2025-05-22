@@ -9,6 +9,7 @@ import com.yl.wirebarley.transaction.domain.dto.DepositRequest;
 import com.yl.wirebarley.transaction.domain.dto.TransactionResponse;
 import com.yl.wirebarley.transaction.domain.dto.TransferRequest;
 import com.yl.wirebarley.transaction.domain.dto.WithdrawalRequest;
+import com.yl.wirebarley.transaction.domain.dto.TransactionHistoryResponse;
 import com.yl.wirebarley.transaction.exception.TransactionException;
 import com.yl.wirebarley.transaction.repository.TransactionsRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Transactional
@@ -190,5 +193,21 @@ public class TransactionsService {
                 TransactionType.TRANSFER, 
                 DAILY_TRANSFER_LIMIT
         );
+    }
+    
+    @Transactional(readOnly = true)
+    public List<TransactionHistoryResponse> getTransactionHistory(Long accountId) {
+        log.info("Fetching transaction history for accountId: {}", accountId);
+        
+        // 계좌 존재 여부 확인
+        getAccountById(accountId);
+        
+        List<Transactions> transactions = transactionsRepository.findAllByAccountIdOrderByTransactionTimeDesc(accountId);
+        
+        log.info("Found {} transactions for accountId: {}", transactions.size(), accountId);
+        
+        return transactions.stream()
+                .map(TransactionHistoryResponse::from)
+                .collect(Collectors.toList());
     }
 }
