@@ -11,7 +11,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @EnableJpaRepositories("com.yl.wirebarley.transaction.repository")
 @EntityScan("com.yl.wirebarley.transaction")
-@Import(CommonConfig.class)
+@Import({CommonConfig.class})
 // api 폴더만 접근가능하도록 변경.
 @ComponentScan(basePackages = {"com.yl.wirebarley.transaction", "com.yl.wirebarley.account.api"})
 public class TransactionApplication {

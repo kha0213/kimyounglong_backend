@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @EnableJpaRepositories("com.yl.wirebarley.account.repository")
 @EntityScan("com.yl.wirebarley.account")
-@Import(CommonConfig.class)
+@Import({CommonConfig.class})
 public class AccountApplication {
 
     public static void main(String[] args) {

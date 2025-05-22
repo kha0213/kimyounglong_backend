@@ -16,7 +16,7 @@ import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.SoftDelete;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ import java.util.List;
 @Entity
 @Table(name = "accounts")
 @Getter
-@SQLRestriction("deleted = false")
+@SoftDelete(columnName = "deleted")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Account extends SoftDeleteBaseEntity {
     @Id
@@ -48,7 +48,7 @@ public class Account extends SoftDeleteBaseEntity {
     @Version
     private Long version;
 
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "account", cascade = CascadeType.PERSIST, orphanRemoval = true)
     private List<AccountHistory> histories = new ArrayList<>();
 
     public static Account create(AccountCreateRequest request) {
