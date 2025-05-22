@@ -13,15 +13,16 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Slf4j
 @RestControllerAdvice(basePackages = {
     "com.yl.wirebarley.common",
-    "com.yl.wirebarley.account"
+    "com.yl.wirebarley.account",
+    "com.yl.wirebarley.transaction"
 })
 public class GlobalExceptionHandler {
-
     @ExceptionHandler(WirebarleyException.class)
-    public ResponseEntity<String> handleCustomException(WirebarleyException e) {
-        log.error("WirebarleyException occurred: {}", e.getMessage(), e);
+    public ResponseEntity<String> handleWirebarleyException(WirebarleyException e) {
+        String exceptionType = e.getClass().getSimpleName();
+        log.error("{} occurred: {}", exceptionType, e.getMessage(), e);
 
-        return ResponseEntity.status(getHttpStatusFromErrorCode(e.getCode()))
+        return ResponseEntity.status(e.getCode().getHttpStatus())
                 .body(e.getMessage());
     }
 
@@ -40,14 +41,5 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
-    }
-
-    private HttpStatus getHttpStatusFromErrorCode(ErrorCode code) {
-        for (ErrorCode errorCode : ErrorCode.values()) {
-            if (errorCode.equals(code)) {
-                return errorCode.getHttpStatus();
-            }
-        }
-        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 }

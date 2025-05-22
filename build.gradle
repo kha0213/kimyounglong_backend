@@ -30,7 +30,6 @@ dependencies {
     implementation project(':common')
     implementation project(':account')
     implementation project(':transaction')
-    implementation project(':transaction-history')
     
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'

@@ -35,7 +35,6 @@ class AccountServiceTest {
     @InjectMocks
     private AccountService accountService;
 
-    // 테스트 객체
     private AccountCreateRequest accountCreateRequest;
     private Account account;
 
