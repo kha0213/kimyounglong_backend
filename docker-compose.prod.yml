@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 데이터베이스 (프로덕션용)
+  postgres:
+    image: postgres:16-alpine
+    container_name: wirebarley-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=wirebarley
+      - POSTGRES_USER=wirebarley_user
+      - POSTGRES_PASSWORD=wirebarley_secure_password_2024!
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - wirebarley-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wirebarley_user -d wirebarley"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  wirebarley-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wirebarley-service-prod
+    ports:
+      - "80:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod,docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/wirebarley
+      - SPRING_DATASOURCE_USERNAME=wirebarley_user
+      - SPRING_DATASOURCE_PASSWORD=wirebarley_secure_password_2024!
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.PostgreSQLDialect
+      - SPRING_H2_CONSOLE_ENABLED=false
+      - SERVER_PORT=8080
+      - LOGGING_LEVEL_ROOT=WARN
+      - LOGGING_LEVEL_COM_YL_WIREBARLEY=INFO
+      - TZ=Asia/Seoul
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wirebarley-network
+    volumes:
+      - ./logs:/app/logs
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Nginx 리버스 프록시 (선택사항)
+  nginx:
+    image: nginx:alpine
+    container_name: wirebarley-nginx
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - wirebarley-app
+    networks:
+      - wirebarley-network
+    restart: always
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  wirebarley-network:
+    driver: bridge
+    name: wirebarley-network-prod
