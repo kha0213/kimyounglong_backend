@@ -48,13 +48,3 @@ spring:
     name: transaction-service
 server:
   port: 8082
-
----
-spring:
-  config:
-    activate:
-      on-profile: history
-  application:
-    name: transaction-history-service
-server:
-  port: 8083

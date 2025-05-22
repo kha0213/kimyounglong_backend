@@ -2,5 +2,4 @@ rootProject.name = 'wirebarley'
 
 include 'account'
 include 'transaction'
-include 'transaction-history'
 include 'common'
